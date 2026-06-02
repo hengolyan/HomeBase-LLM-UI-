@@ -514,6 +514,43 @@ a {
   line-height: 1.45;
 }
 
+.source-line {
+  margin-top: 10px;
+  color: var(--green-700);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.rights-included {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.included-item {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfbf6;
+}
+
+.included-item strong,
+.included-item span {
+  display: block;
+}
+
+.included-item strong {
+  font-size: 0.92rem;
+}
+
+.included-item span {
+  margin-top: 4px;
+  color: var(--green-700);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
 .search-box {
   display: flex;
   align-items: center;

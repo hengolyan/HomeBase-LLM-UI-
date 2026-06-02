@@ -1,10 +1,12 @@
 const state = {
   route: "loading",
   language: "English",
+  selectedRightId: "financial",
 };
 
 const languages = ["Hebrew", "English", "Russian", "Spanish", "French"];
 const resources = window.homeBaseResources || {
+  rightsCategories: [],
   rightsSources: [],
   organizationSources: [],
 };
@@ -27,15 +29,6 @@ const icons = {
   heart: `<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>`,
   alert: `<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>`,
 };
-
-const rights = [
-  ["Financial Support", "Monthly stipends, equipment support, grants, and special assistance funds.", "money", "Eligible"],
-  ["Housing Assistance", "Help with rent, soldier homes, kibbutz housing, and private apartment support.", "house", "Action Required"],
-  ["Food Benefits", "Extra food budgets and supermarket cards for everyday essentials.", "food", "Active"],
-  ["Flights Home", "Annual flight support for eligible lone soldiers visiting family abroad.", "plane", "Check Eligibility"],
-  ["Special Vacation Days", "Additional leave for family visits, bureaucracy, and emergencies.", "calendar", "Eligible"],
-  ["Mental Support", "Confidential counseling, workshops, and emotional support hotlines.", "heart", "Available"],
-];
 
 const groups = [
   ["English Speakers", "The hub for Anglos, practical tips, events, and shared guidance across the country.", "Networking", "Events", 128],
@@ -110,6 +103,31 @@ function bottomNav() {
 
 function shell(title, content, backRoute = null) {
   return `<section class="screen">${topbar(title, backRoute)}${content}${bottomNav()}</section>`;
+}
+
+function getRightById(id) {
+  return resources.rightsCategories.find((right) => right.id === id) || resources.rightsCategories[0];
+}
+
+function rightCategoryCard(right) {
+  const importantSources = right.sources.slice(0, 3).join(" / ");
+  return `
+    <article class="card right-card">
+      <span class="icon-tile">${icon(right.icon)}</span>
+      <div>
+        <div class="meta">
+          <span class="badge ${right.status === "Action Required" || right.status === "Check Eligibility" ? "gold" : ""}">${right.status}</span>
+          <span>${right.category}</span>
+        </div>
+        <h3>${right.title}</h3>
+        <p>${right.summary}</p>
+        <div class="source-line">Includes: ${importantSources}</div>
+      </div>
+      <div class="card-actions">
+        <button class="primary-btn" data-route="right-detail" data-right-id="${right.id}">View Details</button>
+      </div>
+    </article>
+  `;
 }
 
 function sourceCard(item) {
@@ -218,24 +236,10 @@ function renderRights() {
       <div class="content">
         <p class="eyebrow">Benefits and support</p>
         <h2 class="hero-title">Your Soldier Rights</h2>
-        <p class="lead">Plain-language summaries of common benefits, with links to original public sources for verification.</p>
+        <p class="lead">Rights are organized by need. Open a category to see which benefits belong there and which source to verify.</p>
         <div class="search-box">${icon("search")}<input aria-label="Search rights" placeholder="Search benefits, grants, or housing support" /></div>
         <div class="list">
-          ${rights
-            .map(
-              ([title, copy, iconName, status]) => `
-                <article class="card right-card">
-                  <span class="icon-tile">${icon(iconName)}</span>
-                  <div>
-                    <div class="meta"><span class="badge ${status === "Action Required" || status === "Check Eligibility" ? "gold" : ""}">${status}</span></div>
-                    <h3>${title}</h3>
-                    <p>${copy}</p>
-                  </div>
-                  <div class="card-actions"><button class="primary-btn" data-route="right-detail">View Details</button></div>
-                </article>
-              `,
-            )
-            .join("")}
+          ${resources.rightsCategories.map(rightCategoryCard).join("")}
         </div>
         <div class="section-head">
           <h2>Official Information Sources</h2>
@@ -250,27 +254,41 @@ function renderRights() {
 }
 
 function renderRightDetail() {
+  const right = getRightById(state.selectedRightId);
+
   return shell(
     "Right Details",
     `
       <div class="content">
         <article class="card" style="background: var(--green-700); color: white;">
-          <span class="badge" style="background: rgba(255,255,255,.2); color: white;">Housing and Living</span>
-          <h2 class="hero-title" style="margin-top: 10px;">Housing Grant for Lone Soldiers</h2>
-          <p style="color: rgba(255,255,255,.86);">Financial assistance for rent and utilities during your service.</p>
+          <span class="badge" style="background: rgba(255,255,255,.2); color: white;">${right.category}</span>
+          <h2 class="hero-title" style="margin-top: 10px;">${right.title}</h2>
+          <p style="color: rgba(255,255,255,.86);">${right.summary}</p>
         </article>
         <article class="card profile-card">
-          <h3>Overview</h3>
-          <p>As a Lone Soldier, you may be entitled to a monthly grant intended to cover housing expenses including rent and property tax.</p>
+          <h3>Rights Included</h3>
+          <div class="rights-included">
+            ${right.rights
+              .map(
+                (item) => `
+                  <div class="included-item">
+                    <strong>${item.name}</strong>
+                    <span>${item.source}</span>
+                    <p>${item.description}</p>
+                  </div>
+                `,
+              )
+              .join("")}
+          </div>
         </article>
         <article class="card profile-card" style="background: var(--green-100);">
-          <h3>Who Qualifies?</h3>
-          <p>Recognized as a Lone Soldier by the IDF, living independently, and not currently subsidized by family housing.</p>
+          <h3>Where to Verify</h3>
+          <p>This category uses information summarized from: ${right.sources.join(", ")}. Always check the source website because eligibility can change by status, service conditions, and IDF recognition.</p>
         </article>
         <article class="card profile-card">
-          <h3>How to Apply</h3>
-          <p>Notify your tash officer, submit your rental contract, and wait for approval. Most requests are processed within 30-45 days.</p>
-          <div class="card-actions"><button class="secondary-btn">Save</button><button class="primary-btn">Contact</button></div>
+          <h3>Next Step</h3>
+          <p>Use the official or support source below to read the full details, then contact your welfare officer or the organization if you need help understanding the process.</p>
+          <div class="card-actions"><button class="secondary-btn">Save</button><a class="primary-btn external-btn" href="${right.primaryUrl}" target="_blank" rel="noopener noreferrer">${right.contactLabel}</a></div>
         </article>
       </div>
     `,
@@ -436,7 +454,12 @@ const renderers = {
 
 function bindEvents() {
   document.querySelectorAll("[data-route]").forEach((button) => {
-    button.addEventListener("click", () => setRoute(button.dataset.route));
+    button.addEventListener("click", () => {
+      if (button.dataset.rightId) {
+        state.selectedRightId = button.dataset.rightId;
+      }
+      setRoute(button.dataset.route);
+    });
   });
 
   document.querySelectorAll("[data-language]").forEach((button) => {
