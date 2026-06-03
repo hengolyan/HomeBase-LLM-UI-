@@ -488,6 +488,10 @@ a {
   padding: 16px;
 }
 
+.specific-right-card {
+  padding: 16px;
+}
+
 .right-card .card-actions {
   grid-column: 1 / -1;
   justify-content: end;
@@ -549,6 +553,37 @@ a {
   color: var(--green-700);
   font-size: 0.74rem;
   font-weight: 800;
+}
+
+.detail-list {
+  display: grid;
+  gap: 9px;
+  margin: 12px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.empty-state {
+  padding: 24px 18px;
+  border: 1px dashed #cbdac7;
+  border-radius: var(--radius);
+  background: var(--green-50);
+  text-align: center;
+}
+
+.empty-state h3 {
+  margin: 0;
+  color: var(--green-900);
+  font-size: 1rem;
+}
+
+.empty-state p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .search-box {

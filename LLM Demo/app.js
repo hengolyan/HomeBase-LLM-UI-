@@ -1,12 +1,17 @@
 const state = {
   route: "loading",
   language: "English",
-  selectedRightId: "financial",
+  selectedCategoryId: "financial",
+  selectedRightId: "monthly-financial-assistance",
+  rightsSearchQuery: "",
 };
 
 const languages = ["Hebrew", "English", "Russian", "Spanish", "French"];
+const rightsData = window.homeBaseRightsData || {
+  categories: [],
+  rights: [],
+};
 const resources = window.homeBaseResources || {
-  rightsCategories: [],
   rightsSources: [],
   organizationSources: [],
 };
@@ -105,26 +110,80 @@ function shell(title, content, backRoute = null) {
   return `<section class="screen">${topbar(title, backRoute)}${content}${bottomNav()}</section>`;
 }
 
-function getRightById(id) {
-  return resources.rightsCategories.find((right) => right.id === id) || resources.rightsCategories[0];
+function getCategoryById(id) {
+  return rightsData.categories.find((category) => category.id === id) || rightsData.categories[0];
 }
 
-function rightCategoryCard(right) {
-  const importantSources = right.sources.slice(0, 3).join(" / ");
+function getRightsByCategory(categoryId) {
+  return rightsData.rights.filter((right) => right.category === categoryId);
+}
+
+function getSpecificRightById(id) {
+  return rightsData.rights.find((right) => right.id === id) || rightsData.rights[0];
+}
+
+function getCategoryTitle(categoryId) {
+  return getCategoryById(categoryId)?.title || "Rights";
+}
+
+function rightMatchesQuery(right, query) {
+  const category = getCategoryTitle(right.category);
+  const content = [
+    right.title,
+    category,
+    right.shortDescription,
+    right.fullDescription,
+    right.eligibility,
+    right.sourceName,
+    ...(right.keywords || []),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return content.includes(query.trim().toLowerCase());
+}
+
+function getRightsSearchResults() {
+  const query = state.rightsSearchQuery.trim();
+  if (!query) return [];
+  return rightsData.rights.filter((right) => rightMatchesQuery(right, query));
+}
+
+function rightCategoryCard(category) {
+  const count = getRightsByCategory(category.id).length;
   return `
     <article class="card right-card">
-      <span class="icon-tile">${icon(right.icon)}</span>
+      <span class="icon-tile">${icon(category.icon)}</span>
       <div>
         <div class="meta">
-          <span class="badge ${right.status === "Action Required" || right.status === "Check Eligibility" ? "gold" : ""}">${right.status}</span>
-          <span>${right.category}</span>
+          <span class="badge">${count} rights</span>
+          <span>Category</span>
         </div>
-        <h3>${right.title}</h3>
-        <p>${right.summary}</p>
-        <div class="source-line">Includes: ${importantSources}</div>
+        <h3>${category.title}</h3>
+        <p>${category.description}</p>
       </div>
       <div class="card-actions">
-        <button class="primary-btn" data-route="right-detail" data-right-id="${right.id}">View Details</button>
+        <button class="primary-btn" data-route="rights-list" data-category-id="${category.id}">View Rights</button>
+      </div>
+    </article>
+  `;
+}
+
+function specificRightCard(right) {
+  return `
+    <article class="card specific-right-card">
+      <div class="meta">
+        <span class="badge">${right.eligibility}</span>
+        <span>${right.sourceName}</span>
+      </div>
+      <h3>${right.title}</h3>
+      <p>${right.shortDescription}</p>
+      <div class="tag-row">
+        <span class="tag">${getCategoryTitle(right.category)}</span>
+        ${(right.keywords || []).slice(0, 3).map((keyword) => `<span class="tag">${keyword}</span>`).join("")}
+      </div>
+      <div class="card-actions">
+        <button class="primary-btn" data-route="right-detail" data-right-id="${right.id}" data-category-id="${right.category}">View Details</button>
       </div>
     </article>
   `;
@@ -230,16 +289,19 @@ function renderHome() {
 }
 
 function renderRights() {
+  const results = getRightsSearchResults();
+  const hasSearch = state.rightsSearchQuery.trim().length > 0;
+
   return shell(
     "HomeBase",
     `
       <div class="content">
         <p class="eyebrow">Benefits and support</p>
         <h2 class="hero-title">Your Soldier Rights</h2>
-        <p class="lead">Rights are organized by need. Open a category to see which benefits belong there and which source to verify.</p>
-        <div class="search-box">${icon("search")}<input aria-label="Search rights" placeholder="Search benefits, grants, or housing support" /></div>
-        <div class="list">
-          ${resources.rightsCategories.map(rightCategoryCard).join("")}
+        <p class="lead">Start with a rights category, or search across right names, sources, eligibility, and keywords.</p>
+        <div class="search-box">${icon("search")}<input id="rightsSearch" aria-label="Search rights" placeholder="Search housing, flights, food, source, or eligibility" value="${state.rightsSearchQuery}" /></div>
+        <div id="rightsResults">
+          ${hasSearch ? renderRightsSearchResults(results) : renderRightsCategories()}
         </div>
         <div class="section-head">
           <h2>Official Information Sources</h2>
@@ -253,46 +315,113 @@ function renderRights() {
   );
 }
 
+function renderRightsCategories() {
+  return `
+    <div class="section-head">
+      <h2>Rights Categories</h2>
+    </div>
+    <div class="list">
+      ${rightsData.categories.map(rightCategoryCard).join("")}
+    </div>
+  `;
+}
+
+function renderRightsSearchResults(results) {
+  if (!results.length) {
+    return `
+      <div class="empty-state">
+        <h3>No rights found.</h3>
+        <p>Try searching for housing, flights, food, or financial support.</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="section-head">
+      <h2>Search Results</h2>
+      <button class="text-link" data-clear-rights-search="true">Clear</button>
+    </div>
+    <div class="list">
+      ${results.map(specificRightCard).join("")}
+    </div>
+  `;
+}
+
+function renderRightsList() {
+  const category = getCategoryById(state.selectedCategoryId);
+  const rights = getRightsByCategory(category.id);
+
+  return shell(
+    "Rights",
+    `
+      <div class="content">
+        <p class="eyebrow">Rights category</p>
+        <h2 class="hero-title">${category.title}</h2>
+        <p class="lead">${category.description}</p>
+        <div class="section-head">
+          <h2>${rights.length} rights inside</h2>
+          <button class="text-link" data-route="rights">All Categories</button>
+        </div>
+        <div class="list">
+          ${rights.map(specificRightCard).join("")}
+        </div>
+        <p class="disclaimer">Information is summarized for accessibility. Please verify details on the official source.</p>
+      </div>
+    `,
+    "rights",
+  );
+}
+
 function renderRightDetail() {
-  const right = getRightById(state.selectedRightId);
+  const right = getSpecificRightById(state.selectedRightId);
+  const category = getCategoryById(right.category);
 
   return shell(
     "Right Details",
     `
       <div class="content">
         <article class="card" style="background: var(--green-700); color: white;">
-          <span class="badge" style="background: rgba(255,255,255,.2); color: white;">${right.category}</span>
+          <span class="badge" style="background: rgba(255,255,255,.2); color: white;">${category.title}</span>
           <h2 class="hero-title" style="margin-top: 10px;">${right.title}</h2>
-          <p style="color: rgba(255,255,255,.86);">${right.summary}</p>
+          <p style="color: rgba(255,255,255,.86);">${right.shortDescription}</p>
         </article>
         <article class="card profile-card">
-          <h3>Rights Included</h3>
-          <div class="rights-included">
-            ${right.rights
-              .map(
-                (item) => `
-                  <div class="included-item">
-                    <strong>${item.name}</strong>
-                    <span>${item.source}</span>
-                    <p>${item.description}</p>
-                  </div>
-                `,
-              )
-              .join("")}
-          </div>
+          <h3>Full Explanation</h3>
+          <p>${right.fullDescription}</p>
+        </article>
+        <article class="card profile-card">
+          <h3>Who Is Eligible</h3>
+          <p>${right.eligibility}</p>
+        </article>
+        <article class="card profile-card">
+          <h3>How to Apply</h3>
+          <p>${right.howToApply}</p>
+        </article>
+        <article class="card profile-card">
+          <h3>Required Documents</h3>
+          <ul class="detail-list">
+            ${right.requiredDocuments.map((item) => `<li>${item}</li>`).join("")}
+          </ul>
+        </article>
+        <article class="card profile-card">
+          <h3>Important Notes</h3>
+          <ul class="detail-list">
+            ${right.importantNotes.map((item) => `<li>${item}</li>`).join("")}
+          </ul>
         </article>
         <article class="card profile-card" style="background: var(--green-100);">
-          <h3>Where to Verify</h3>
-          <p>This category uses information summarized from: ${right.sources.join(", ")}. Always check the source website because eligibility can change by status, service conditions, and IDF recognition.</p>
+          <h3>Official Source</h3>
+          <p>${right.sourceName}</p>
         </article>
         <article class="card profile-card">
           <h3>Next Step</h3>
-          <p>Use the official or support source below to read the full details, then contact your welfare officer or the organization if you need help understanding the process.</p>
-          <div class="card-actions"><button class="secondary-btn">Save</button><a class="primary-btn external-btn" href="${right.primaryUrl}" target="_blank" rel="noopener noreferrer">${right.contactLabel}</a></div>
+          <p>Use the source below to verify current details. For IDF benefits, also contact your welfare officer before making decisions.</p>
+          <div class="card-actions"><button class="secondary-btn">Save</button><a class="primary-btn external-btn" href="${right.sourceUrl}" target="_blank" rel="noopener noreferrer">Open Original Source</a></div>
         </article>
+        <p class="disclaimer">Information is summarized for accessibility. Please verify details on the official source.</p>
       </div>
     `,
-    "rights",
+    "rights-list",
   );
 }
 
@@ -445,6 +574,7 @@ const renderers = {
   loading: renderLoading,
   home: renderHome,
   rights: renderRights,
+  "rights-list": renderRightsList,
   "right-detail": renderRightDetail,
   community: renderCommunity,
   map: renderMap,
@@ -454,19 +584,49 @@ const renderers = {
 
 function bindEvents() {
   document.querySelectorAll("[data-route]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.onclick = () => {
+      if (button.dataset.categoryId) {
+        state.selectedCategoryId = button.dataset.categoryId;
+      }
       if (button.dataset.rightId) {
         state.selectedRightId = button.dataset.rightId;
+        const selected = getSpecificRightById(button.dataset.rightId);
+        if (selected) {
+          state.selectedCategoryId = selected.category;
+        }
       }
       setRoute(button.dataset.route);
-    });
+    };
+  });
+
+  const rightsSearch = document.getElementById("rightsSearch");
+  if (rightsSearch) {
+    rightsSearch.oninput = (event) => {
+      state.rightsSearchQuery = event.target.value;
+      const resultsContainer = document.getElementById("rightsResults");
+      if (resultsContainer) {
+        const results = getRightsSearchResults();
+        resultsContainer.innerHTML = state.rightsSearchQuery.trim()
+          ? renderRightsSearchResults(results)
+          : renderRightsCategories();
+        bindEvents();
+        rightsSearch.focus();
+      }
+    };
+  }
+
+  document.querySelectorAll("[data-clear-rights-search]").forEach((button) => {
+    button.onclick = () => {
+      state.rightsSearchQuery = "";
+      render();
+    };
   });
 
   document.querySelectorAll("[data-language]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.onclick = () => {
       state.language = button.dataset.language;
       render();
-    });
+    };
   });
 }
 
