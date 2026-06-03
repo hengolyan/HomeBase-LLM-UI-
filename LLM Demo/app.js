@@ -4,6 +4,7 @@ const state = {
   selectedCategoryId: "financial",
   selectedRightId: "monthly-financial-assistance",
   rightsSearchQuery: "",
+  savedRightIds: loadSavedRightIds(),
 };
 
 const languages = ["Hebrew", "English", "Russian", "Spanish", "French"];
@@ -56,6 +57,39 @@ const nav = [
 function setRoute(route) {
   state.route = route;
   render();
+}
+
+function loadSavedRightIds() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("homebaseSavedRights") || "[]");
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistSavedRightIds() {
+  localStorage.setItem("homebaseSavedRights", JSON.stringify(state.savedRightIds));
+}
+
+function isRightSaved(id) {
+  return state.savedRightIds.includes(id);
+}
+
+function toggleSavedRight(id) {
+  if (isRightSaved(id)) {
+    state.savedRightIds = state.savedRightIds.filter((rightId) => rightId !== id);
+  } else {
+    state.savedRightIds = [id, ...state.savedRightIds];
+  }
+  persistSavedRightIds();
+  render();
+}
+
+function getSavedRights() {
+  return state.savedRightIds
+    .map((id) => getSpecificRightById(id))
+    .filter(Boolean);
 }
 
 function icon(name) {
@@ -375,6 +409,7 @@ function renderRightsList() {
 function renderRightDetail() {
   const right = getSpecificRightById(state.selectedRightId);
   const category = getCategoryById(right.category);
+  const saved = isRightSaved(right.id);
 
   return shell(
     "Right Details",
@@ -416,7 +451,7 @@ function renderRightDetail() {
         <article class="card profile-card">
           <h3>Next Step</h3>
           <p>Use the source below to verify current details. For IDF benefits, also contact your welfare officer before making decisions.</p>
-          <div class="card-actions"><button class="secondary-btn">Save</button><a class="primary-btn external-btn" href="${right.sourceUrl}" target="_blank" rel="noopener noreferrer">Open Original Source</a></div>
+          <div class="card-actions"><button class="${saved ? "primary-btn" : "secondary-btn"}" data-save-right="${right.id}">${saved ? "Saved" : "Save"}</button><a class="primary-btn external-btn" href="${right.sourceUrl}" target="_blank" rel="noopener noreferrer">Open Original Source</a></div>
         </article>
         <p class="disclaimer">Information is summarized for accessibility. Please verify details on the official source.</p>
       </div>
@@ -513,6 +548,8 @@ function renderMap() {
 }
 
 function renderProfile() {
+  const savedRights = getSavedRights();
+
   return shell(
     "HomeBase",
     `
@@ -526,16 +563,21 @@ function renderProfile() {
 
         <article class="card profile-card">
           <div class="section-head" style="margin-top: 0;"><h3>Saved Rights</h3><button class="text-link" data-route="rights">View All</button></div>
-          ${["Rent Assistance", "Tax Exemption", "Flight Grant", "Health Care"]
-            .map(
-              (item) => `
-                <div class="saved-item">
-                  <span class="icon-tile">${icon(item.includes("Rent") ? "house" : item.includes("Flight") ? "plane" : item.includes("Health") ? "heart" : "money")}</span>
-                  <div><h4>${item}</h4><p>${item.includes("Health") ? "Mental support" : "Housing department"}</p></div>
-                </div>
-              `,
-            )
-            .join("")}
+          ${
+            savedRights.length
+              ? savedRights
+                  .map((right) => {
+                    const category = getCategoryById(right.category);
+                    return `
+                      <button class="saved-item saved-button" data-route="right-detail" data-right-id="${right.id}" data-category-id="${right.category}">
+                        <span class="icon-tile">${icon(category.icon)}</span>
+                        <div><h4>${right.title}</h4><p>${category.title} - ${right.sourceName}</p></div>
+                      </button>
+                    `;
+                  })
+                  .join("")
+              : `<div class="empty-state compact"><h3>No saved rights yet.</h3><p>Open a right and tap Save to keep it here.</p></div>`
+          }
         </article>
 
         <article class="card profile-card">
@@ -543,7 +585,7 @@ function renderProfile() {
           <div class="row"><span>Preferred Language</span><span>${state.language}</span></div>
           <div class="row"><span>User Type</span><span>Lone Soldier</span></div>
           <div class="row"><span>Joined Groups</span><span>4 groups</span></div>
-          <div class="row"><span>Saved Rights</span><span>12 items</span></div>
+          <div class="row"><span>Saved Rights</span><span>${savedRights.length} items</span></div>
           <div class="row"><span>Settings</span><span>Alerts On</span></div>
         </article>
 
@@ -619,6 +661,12 @@ function bindEvents() {
     button.onclick = () => {
       state.rightsSearchQuery = "";
       render();
+    };
+  });
+
+  document.querySelectorAll("[data-save-right]").forEach((button) => {
+    button.onclick = () => {
+      toggleSavedRight(button.dataset.saveRight);
     };
   });
 

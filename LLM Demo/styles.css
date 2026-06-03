@@ -586,6 +586,10 @@ a {
   line-height: 1.45;
 }
 
+.empty-state.compact {
+  padding: 16px 12px;
+}
+
 .search-box {
   display: flex;
   align-items: center;
@@ -807,6 +811,17 @@ a {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fbfbf6;
+}
+
+.saved-button {
+  width: 100%;
+  color: inherit;
+  text-align: left;
+}
+
+.saved-button:hover {
+  border-color: #c7ddc0;
+  background: var(--green-50);
 }
 
 .saved-item + .saved-item {
