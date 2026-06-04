@@ -7,6 +7,7 @@ const state = {
   savedRightIds: loadSavedRightIds(),
   selectedPlaceFilter: "All",
   placesSearchQuery: "",
+  communitySearchQuery: "",
 };
 
 const languages = ["Hebrew", "English", "Russian", "Spanish", "French"];
@@ -212,6 +213,61 @@ function getFilteredPlaces() {
     const matchesQuery = !query || placeMatchesQuery(place, query);
     return matchesFilter && matchesQuery;
   });
+}
+
+function placeResultsHeader() {
+  return `${getFilteredPlaces().length} support places`;
+}
+
+function groupMatchesQuery(group, query) {
+  const [title, description, tagA, tagB, online] = group;
+  const content = [title, description, tagA, tagB, `${online} online`].join(" ").toLowerCase();
+  return content.includes(query.trim().toLowerCase());
+}
+
+function getFilteredGroups() {
+  const query = state.communitySearchQuery.trim();
+  if (!query) return groups;
+  return groups.filter((group) => groupMatchesQuery(group, query));
+}
+
+function groupCard(group) {
+  const [title, copy, tagA, tagB, online] = group;
+  return `
+    <article class="card group-card">
+      <div class="avatar-small">${title.charAt(0)}</div>
+      <div>
+        <h3>${title}</h3>
+        <div class="online">${online} online</div>
+        <p>${copy}</p>
+        <div class="tag-row"><span class="tag">${tagA}</span><span class="tag">${tagB}</span></div>
+        <div class="card-actions"><button class="primary-btn">Join Group</button></div>
+      </div>
+      <button class="icon-button" aria-label="More options">...</button>
+    </article>
+  `;
+}
+
+function renderCommunityResults() {
+  const filteredGroups = getFilteredGroups();
+  if (!filteredGroups.length) {
+    return `
+      <div class="empty-state">
+        <h3>No groups found.</h3>
+        <p>Try searching for English, housing, emotional support, female soldiers, or community.</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="section-head">
+      <h2>${filteredGroups.length} suggested groups</h2>
+      ${state.communitySearchQuery.trim() ? `<button class="text-link" data-clear-community-search="true">Clear</button>` : ""}
+    </div>
+    <div class="list">
+      ${filteredGroups.map(groupCard).join("")}
+    </div>
+  `;
 }
 
 function renderPlaceFilters() {
@@ -551,26 +607,10 @@ function renderCommunity() {
       <div class="content">
         <h2 class="hero-title">Your Community</h2>
         <p class="lead">Connect with fellow soldiers, find specialized support, and share experiences in a safe space.</p>
-        <div class="search-box">${icon("search")}<input aria-label="Search groups" placeholder="Search groups or topics" /></div>
+        <div class="search-box">${icon("search")}<input id="communitySearch" aria-label="Search groups" placeholder="Search language, housing, emotional support, or topics" value="${state.communitySearchQuery}" /></div>
         <button class="secondary-btn" style="width: 100%; margin-bottom: 16px;">Create New Group</button>
-        <div class="list">
-          ${groups
-            .map(
-              ([title, copy, tagA, tagB, online]) => `
-                <article class="card group-card">
-                  <div class="avatar-small">${title.charAt(0)}</div>
-                  <div>
-                    <h3>${title}</h3>
-                    <div class="online">${online} online</div>
-                    <p>${copy}</p>
-                    <div class="tag-row"><span class="tag">${tagA}</span><span class="tag">${tagB}</span></div>
-                    <div class="card-actions"><button class="primary-btn">Join Group</button></div>
-                  </div>
-                  <button class="icon-button" aria-label="More options">⋮</button>
-                </article>
-              `,
-            )
-            .join("")}
+        <div id="communityResults">
+          ${renderCommunityResults()}
         </div>
       </div>
     `,
@@ -598,7 +638,7 @@ function renderMap() {
         <div class="search-box">${icon("search")}<input id="placesSearch" aria-label="Search nearby help" placeholder="Search housing, community, Tel Aviv, Jerusalem, or support" value="${state.placesSearchQuery}" /></div>
         ${renderPlaceFilters()}
         <div class="section-head">
-          <h2>${visiblePlaces.length} support places</h2>
+          <h2 id="placesCount">${visiblePlaces.length} support places</h2>
           <button class="text-link" data-reset-place-filters="true">Reset</button>
         </div>
         <div id="placesResults">
@@ -737,15 +777,38 @@ function bindEvents() {
   if (placesSearch) {
     placesSearch.oninput = (event) => {
       state.placesSearchQuery = event.target.value;
-      const cursor = event.target.selectionStart;
-      render();
-      const nextSearch = document.getElementById("placesSearch");
-      if (nextSearch) {
-        nextSearch.focus();
-        nextSearch.setSelectionRange(cursor, cursor);
+      const resultsContainer = document.getElementById("placesResults");
+      const placesCount = document.getElementById("placesCount");
+      if (placesCount) {
+        placesCount.textContent = placeResultsHeader();
+      }
+      if (resultsContainer) {
+        resultsContainer.innerHTML = renderPlacesResults();
+        bindEvents();
+        placesSearch.focus();
       }
     };
   }
+
+  const communitySearch = document.getElementById("communitySearch");
+  if (communitySearch) {
+    communitySearch.oninput = (event) => {
+      state.communitySearchQuery = event.target.value;
+      const resultsContainer = document.getElementById("communityResults");
+      if (resultsContainer) {
+        resultsContainer.innerHTML = renderCommunityResults();
+        bindEvents();
+        communitySearch.focus();
+      }
+    };
+  }
+
+  document.querySelectorAll("[data-clear-community-search]").forEach((button) => {
+    button.onclick = () => {
+      state.communitySearchQuery = "";
+      render();
+    };
+  });
 
   document.querySelectorAll("[data-place-filter]").forEach((button) => {
     button.onclick = () => {
