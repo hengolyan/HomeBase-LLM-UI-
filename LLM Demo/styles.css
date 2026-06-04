@@ -746,6 +746,26 @@ a {
   gap: 12px;
 }
 
+.place-card {
+  padding: 16px;
+}
+
+.place-card-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.place-card .card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.map-filter-strip {
+  margin-bottom: 8px;
+}
+
 .distance {
   margin-top: 7px;
   color: var(--muted);

@@ -5,6 +5,8 @@ const state = {
   selectedRightId: "monthly-financial-assistance",
   rightsSearchQuery: "",
   savedRightIds: loadSavedRightIds(),
+  selectedPlaceFilter: "All",
+  placesSearchQuery: "",
 };
 
 const languages = ["Hebrew", "English", "Russian", "Spanish", "French"];
@@ -15,6 +17,10 @@ const rightsData = window.homeBaseRightsData || {
 const resources = window.homeBaseResources || {
   rightsSources: [],
   organizationSources: [],
+};
+const placesData = window.homeBasePlacesData || {
+  filters: [],
+  places: [],
 };
 
 const icons = {
@@ -181,6 +187,84 @@ function getRightsSearchResults() {
   const query = state.rightsSearchQuery.trim();
   if (!query) return [];
   return rightsData.rights.filter((right) => rightMatchesQuery(right, query));
+}
+
+function placeMatchesQuery(place, query) {
+  const content = [
+    place.name,
+    place.city,
+    place.category,
+    place.supportType,
+    place.description,
+    place.sourceName,
+    ...(place.keywords || []),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return content.includes(query.trim().toLowerCase());
+}
+
+function getFilteredPlaces() {
+  const query = state.placesSearchQuery.trim();
+  return placesData.places.filter((place) => {
+    const matchesFilter = state.selectedPlaceFilter === "All" || place.category === state.selectedPlaceFilter;
+    const matchesQuery = !query || placeMatchesQuery(place, query);
+    return matchesFilter && matchesQuery;
+  });
+}
+
+function renderPlaceFilters() {
+  return `
+    <div class="language-strip map-filter-strip" aria-label="Map support filters">
+      ${placesData.filters
+        .map(
+          (filter) =>
+            `<button class="chip ${state.selectedPlaceFilter === filter ? "active" : ""}" data-place-filter="${filter}">${filter}</button>`,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function placeCard(place) {
+  const tone = place.category === "Emergency" ? "red" : place.category === "Housing" ? "gold" : "";
+  return `
+    <article class="card place-card">
+      <div class="place-card-head">
+        <span class="icon-tile">${icon(place.category === "Housing" ? "house" : place.category === "Community" ? "community" : place.category === "Emergency" ? "alert" : place.category === "Rights Help" ? "rights" : "org")}</span>
+        <div>
+          <div class="meta"><span class="badge ${tone}">${place.category}</span><span>${place.distance}</span></div>
+          <h3>${place.name}</h3>
+          <div class="distance">${place.city} - ${place.supportType}</div>
+        </div>
+      </div>
+      <p>${place.description}</p>
+      <div class="source-line">Source: ${place.sourceName}</div>
+      <div class="card-actions">
+        <a class="primary-btn external-btn" href="${place.sourceUrl}" target="_blank" rel="noopener noreferrer">Open Website</a>
+        <a class="secondary-btn external-btn" href="${place.directionsUrl}" target="_blank" rel="noopener noreferrer">Get Directions</a>
+      </div>
+    </article>
+  `;
+}
+
+function renderPlacesResults() {
+  const places = getFilteredPlaces();
+  if (!places.length) {
+    return `
+      <div class="empty-state">
+        <h3>No places found.</h3>
+        <p>Try searching for housing, community, Tel Aviv, Jerusalem, or support.</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="list">
+      ${places.map(placeCard).join("")}
+    </div>
+  `;
 }
 
 function rightCategoryCard(category) {
@@ -494,12 +578,7 @@ function renderCommunity() {
 }
 
 function renderMap() {
-  const nearby = [
-    ["Soldier Medical Wing", "450m away • Open 24/7", "Emergency", "red", "Urgent Call"],
-    ["The Lone Soldier Home", "1.2km away • Community Hub", "Community Centers", "", "View Activities"],
-    ["Friday Night Shabbat Dinner", "Center City • 800m away", "Featured Activity", "gold", "Join Now"],
-    ["Housing Support Desk", "2.1km away • Walk-ins today", "Housing", "", "Contact"],
-  ];
+  const visiblePlaces = getFilteredPlaces();
 
   return shell(
     "HomeBase",
@@ -513,35 +592,19 @@ function renderMap() {
         <div class="location-pill">Current Location</div>
       </div>
       <div class="content">
+        <p class="eyebrow">Location finder</p>
+        <h2 class="hero-title">Nearby Support</h2>
+        <p class="lead">Find real support organizations and services, shown with mock distance labels for this demo.</p>
+        <div class="search-box">${icon("search")}<input id="placesSearch" aria-label="Search nearby help" placeholder="Search housing, community, Tel Aviv, Jerusalem, or support" value="${state.placesSearchQuery}" /></div>
+        ${renderPlaceFilters()}
         <div class="section-head">
-          <h2>Nearest to You</h2>
-          <button class="text-link">Filter All</button>
+          <h2>${visiblePlaces.length} support places</h2>
+          <button class="text-link" data-reset-place-filters="true">Reset</button>
         </div>
-        <div class="search-box">${icon("search")}<input aria-label="Search nearby help" placeholder="Search nearby help" /></div>
-        <div class="language-strip">
-          <button class="chip active">Emergency</button>
-          <button class="chip">Nearby Organizations</button>
-          <button class="chip">Housing Support</button>
-          <button class="chip">Community Places</button>
+        <div id="placesResults">
+          ${renderPlacesResults()}
         </div>
-        <div class="list">
-          ${nearby
-            .map(
-              ([title, distance, label, tone, cta]) => `
-                <article class="card nearby-card">
-                  <span class="icon-tile">${icon(tone === "red" ? "alert" : title.includes("Housing") ? "house" : "community")}</span>
-                  <div>
-                    <span class="badge ${tone}">${label}</span>
-                    <h3 style="margin-top: 10px;">${title}</h3>
-                    <div class="distance">${distance}</div>
-                    <p>Location-based suggestion matched to your selected support categories.</p>
-                    <div class="card-actions"><button class="${tone === "red" ? "danger-btn" : "primary-btn"}">${cta}</button></div>
-                  </div>
-                </article>
-              `,
-            )
-            .join("")}
-        </div>
+        <p class="disclaimer">Locations and information are summarized for demo purposes. Please verify details on the official source.</p>
       </div>
     `,
   );
@@ -667,6 +730,35 @@ function bindEvents() {
   document.querySelectorAll("[data-save-right]").forEach((button) => {
     button.onclick = () => {
       toggleSavedRight(button.dataset.saveRight);
+    };
+  });
+
+  const placesSearch = document.getElementById("placesSearch");
+  if (placesSearch) {
+    placesSearch.oninput = (event) => {
+      state.placesSearchQuery = event.target.value;
+      const cursor = event.target.selectionStart;
+      render();
+      const nextSearch = document.getElementById("placesSearch");
+      if (nextSearch) {
+        nextSearch.focus();
+        nextSearch.setSelectionRange(cursor, cursor);
+      }
+    };
+  }
+
+  document.querySelectorAll("[data-place-filter]").forEach((button) => {
+    button.onclick = () => {
+      state.selectedPlaceFilter = button.dataset.placeFilter;
+      render();
+    };
+  });
+
+  document.querySelectorAll("[data-reset-place-filters]").forEach((button) => {
+    button.onclick = () => {
+      state.selectedPlaceFilter = "All";
+      state.placesSearchQuery = "";
+      render();
     };
   });
 
