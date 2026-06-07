@@ -750,6 +750,16 @@ a {
   padding: 16px;
 }
 
+.medical-place-card {
+  border-left: 4px solid #c83e42;
+  background: linear-gradient(145deg, #ffffff, #fff8f7);
+}
+
+.medical-place-card .icon-tile {
+  background: #ffe1df;
+  color: #a6292e;
+}
+
 .place-card-head {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -866,6 +876,19 @@ a {
   margin-top: 7px;
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.place-address {
+  margin: 10px 0 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.emergency-disclaimer {
+  border-color: #efc6c4;
+  background: #fff5f4;
+  color: #7b272b;
 }
 
 .profile-head {

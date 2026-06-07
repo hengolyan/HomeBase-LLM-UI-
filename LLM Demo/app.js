@@ -197,6 +197,7 @@ function placeMatchesQuery(place, query) {
     place.category,
     place.supportType,
     place.description,
+    place.address,
     place.sourceName,
     ...(place.keywords || []),
   ]
@@ -209,7 +210,8 @@ function placeMatchesQuery(place, query) {
 function getFilteredPlaces() {
   const query = state.placesSearchQuery.trim();
   return placesData.places.filter((place) => {
-    const matchesFilter = state.selectedPlaceFilter === "All" || place.category === state.selectedPlaceFilter;
+    const filterCategories = placesData.filterCategories?.[state.selectedPlaceFilter] || [state.selectedPlaceFilter];
+    const matchesFilter = state.selectedPlaceFilter === "All" || filterCategories.includes(place.category);
     const matchesQuery = !query || placeMatchesQuery(place, query);
     return matchesFilter && matchesQuery;
   });
@@ -292,6 +294,7 @@ function placeCategoryIcon(category) {
     "Mental Support": "heart",
     "Student & Youth Support": "community",
     "Emergency Help": "alert",
+    "Medical & Emergency": "alert",
     "Community Spaces": "home",
     "Soldier Benefits Assistance": "rights",
     "Food & Essentials Support": "food",
@@ -301,8 +304,9 @@ function placeCategoryIcon(category) {
 }
 
 function placeCard(place) {
+  const isMedical = place.category === "Medical & Emergency";
   const tone =
-    place.category === "Emergency Help"
+    place.category === "Emergency Help" || isMedical
       ? "red"
       : place.category === "Housing Support" || place.category === "Food & Essentials Support"
         ? "gold"
@@ -310,7 +314,7 @@ function placeCard(place) {
   const phoneHref = place.phone ? place.phone.replace(/[^\d+]/g, "") : "";
 
   return `
-    <article class="card place-card">
+    <article class="card place-card ${isMedical ? "medical-place-card" : ""}">
       <div class="place-card-head">
         <span class="icon-tile">${icon(placeCategoryIcon(place.category))}</span>
         <div>
@@ -320,6 +324,7 @@ function placeCard(place) {
         </div>
       </div>
       <p>${place.description}</p>
+      <div class="place-address"><strong>Address:</strong> ${place.address}</div>
       <div class="source-line">Source: ${place.sourceName}</div>
       <div class="card-actions">
         <a class="primary-btn external-btn" href="${place.sourceUrl}" target="_blank" rel="noopener noreferrer">Open Website</a>
@@ -725,6 +730,7 @@ function renderMap() {
           ${renderPlacesResults()}
         </div>
         <p class="disclaimer">Locations and information are summarized for demo purposes. Please verify details on the official source.</p>
+        <p class="disclaimer emergency-disclaimer">Emergency and medical information is summarized for demo purposes. In a real emergency, contact official emergency services immediately.</p>
       </div>
     `,
   );
