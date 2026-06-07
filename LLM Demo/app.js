@@ -283,12 +283,36 @@ function renderPlaceFilters() {
   `;
 }
 
+function placeCategoryIcon(category) {
+  const categoryIcons = {
+    "Housing Support": "house",
+    "Young Adult Communities": "community",
+    "Volunteer Centers": "community",
+    "Social Clubs": "community",
+    "Mental Support": "heart",
+    "Student & Youth Support": "community",
+    "Emergency Help": "alert",
+    "Community Spaces": "home",
+    "Soldier Benefits Assistance": "rights",
+    "Food & Essentials Support": "food",
+  };
+
+  return categoryIcons[category] || "org";
+}
+
 function placeCard(place) {
-  const tone = place.category === "Emergency" ? "red" : place.category === "Housing" ? "gold" : "";
+  const tone =
+    place.category === "Emergency Help"
+      ? "red"
+      : place.category === "Housing Support" || place.category === "Food & Essentials Support"
+        ? "gold"
+        : "";
+  const phoneHref = place.phone ? place.phone.replace(/[^\d+]/g, "") : "";
+
   return `
     <article class="card place-card">
       <div class="place-card-head">
-        <span class="icon-tile">${icon(place.category === "Housing" ? "house" : place.category === "Community" ? "community" : place.category === "Emergency" ? "alert" : place.category === "Rights Help" ? "rights" : "org")}</span>
+        <span class="icon-tile">${icon(placeCategoryIcon(place.category))}</span>
         <div>
           <div class="meta"><span class="badge ${tone}">${place.category}</span><span>${place.distance}</span></div>
           <h3>${place.name}</h3>
@@ -300,8 +324,45 @@ function placeCard(place) {
       <div class="card-actions">
         <a class="primary-btn external-btn" href="${place.sourceUrl}" target="_blank" rel="noopener noreferrer">Open Website</a>
         <a class="secondary-btn external-btn" href="${place.directionsUrl}" target="_blank" rel="noopener noreferrer">Get Directions</a>
+        ${place.phone ? `<a class="secondary-btn contact-btn" href="tel:${phoneHref}">Call ${place.phone}</a>` : ""}
       </div>
     </article>
+  `;
+}
+
+function recommendedPlaceCard(place) {
+  return `
+    <article class="recommendation-card">
+      <div class="meta"><span class="badge">For you</span><span>${place.distance}</span></div>
+      <span class="icon-tile">${icon(placeCategoryIcon(place.category))}</span>
+      <h3>${place.name}</h3>
+      <p>${place.city} - ${place.supportType}</p>
+      <a class="text-link" href="${place.sourceUrl}" target="_blank" rel="noopener noreferrer">Open resource</a>
+    </article>
+  `;
+}
+
+function renderRecommendedPlaces() {
+  const userType = "Lone Soldier from abroad";
+  const recommendations = placesData.places
+    .filter((place) => (place.recommendedFor || []).includes(userType))
+    .slice(0, 5);
+
+  if (!recommendations.length) return "";
+
+  return `
+    <section class="map-recommendations" aria-labelledby="recommendedPlacesTitle">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Based on your profile</p>
+          <h2 id="recommendedPlacesTitle">Recommended for you</h2>
+        </div>
+        <span class="profile-match">Lone Soldier</span>
+      </div>
+      <div class="recommendation-scroll">
+        ${recommendations.map(recommendedPlaceCard).join("")}
+      </div>
+    </section>
   `;
 }
 
@@ -316,10 +377,28 @@ function renderPlacesResults() {
     `;
   }
 
+  const placesByCity = places.reduce((groups, place) => {
+    if (!groups[place.city]) groups[place.city] = [];
+    groups[place.city].push(place);
+    return groups;
+  }, {});
+
   return `
-    <div class="list">
-      ${places.map(placeCard).join("")}
-    </div>
+    ${Object.entries(placesByCity)
+      .map(
+        ([city, cityPlaces]) => `
+          <section class="place-group" aria-label="${city} support places">
+            <div class="place-group-heading">
+              <h2>${city}</h2>
+              <span>${cityPlaces.length} ${cityPlaces.length === 1 ? "place" : "places"}</span>
+            </div>
+            <div class="list">
+              ${cityPlaces.map(placeCard).join("")}
+            </div>
+          </section>
+        `,
+      )
+      .join("")}
   `;
 }
 
@@ -634,8 +713,9 @@ function renderMap() {
       <div class="content">
         <p class="eyebrow">Location finder</p>
         <h2 class="hero-title">Nearby Support</h2>
-        <p class="lead">Find real support organizations and services, shown with mock distance labels for this demo.</p>
-        <div class="search-box">${icon("search")}<input id="placesSearch" aria-label="Search nearby help" placeholder="Search housing, community, Tel Aviv, Jerusalem, or support" value="${state.placesSearchQuery}" /></div>
+        <p class="lead">Discover soldier services, young adult communities, volunteering, practical help, and emotional support across Israel.</p>
+        ${renderRecommendedPlaces()}
+        <div class="search-box">${icon("search")}<input id="placesSearch" aria-label="Search nearby help" placeholder="Search city, category, organization, or support type" value="${state.placesSearchQuery}" /></div>
         ${renderPlaceFilters()}
         <div class="section-head">
           <h2 id="placesCount">${visiblePlaces.length} support places</h2>
